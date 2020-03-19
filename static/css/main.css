@@ -13,3 +13,9 @@ body {
 #orders-pending {
   background-color: #7cd1c0;
 }
+
+.hello-msg {
+  font-size: 18px;
+  color: #fff;
+  margin-right: 20px;
+}
