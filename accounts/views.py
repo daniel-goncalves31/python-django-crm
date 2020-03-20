@@ -5,13 +5,38 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group
 from .models import Product, Order, Customer
-from .forms import OrderForm, CreateUserForm
+from .forms import OrderForm, CreateUserForm, CustomerForm
 from .filters import OrderFilter
 from .decorators import unauthenticated_user, allowed_users, admin_only
 
 
-def user(request):
-    context = {}
+@login_required(login_url='login')
+@allowed_users(allowed_roles=['customer'])
+def account_settings(request):
+    customer = request.user.customer
+
+    if request.method == 'POST':
+        form = CustomerForm(request.POST, request.FILES, instance=customer)
+        if form.is_valid():
+            form.save()
+
+    form = CustomerForm(instance=customer)
+    context = {'form': form}
+    return render(request, 'accounts/account_settings.html', context)
+
+
+@login_required(login_url='login')
+@allowed_users(allowed_roles=['customer'])
+def user_page(request):
+    orders = request.user.customer.order_set.all()
+
+    total_orders = orders.count()
+    total_delivered = orders.filter(status='Delivered').count()
+    total_pending = orders.filter(status='Pending').count()
+
+    context = {'orders': orders, 'total_orders': total_orders,
+               'total_delivered': total_delivered, 'total_pending': total_pending}
+
     return render(request, 'accounts/user.html', context)
 
 
@@ -110,6 +135,8 @@ def register_page(request):
 
             group = Group.objects.get(name="customer")
             user.groups.add(group)
+
+            Customer.objects.create(user=user)
 
             username = form.cleaned_data.get('username')
             messages.success(
