@@ -3,12 +3,20 @@ from django.forms import inlineformset_factory
 from django.contrib import messages
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import Group
 from .models import Product, Order, Customer
 from .forms import OrderForm, CreateUserForm
 from .filters import OrderFilter
+from .decorators import unauthenticated_user, allowed_users, admin_only
+
+
+def user(request):
+    context = {}
+    return render(request, 'accounts/user.html', context)
 
 
 @login_required(login_url='login')
+@admin_only
 def home(request):
 
     orders = Order.objects.all()
@@ -92,15 +100,17 @@ def delete_order(request, pk):
     return render(request, 'accounts/delete.html', context)
 
 
+@unauthenticated_user
 def register_page(request):
-
-    if request.user.is_authenticated:
-        return redirect('home')
 
     if request.method == 'POST':
         form = CreateUserForm(request.POST)
         if form.is_valid():
-            form.save()
+            user = form.save()
+
+            group = Group.objects.get(name="customer")
+            user.groups.add(group)
+
             username = form.cleaned_data.get('username')
             messages.success(
                 request, f"The user {username} was created successffully")
@@ -111,9 +121,8 @@ def register_page(request):
     return render(request, 'accounts/register.html', context)
 
 
+@unauthenticated_user
 def login_page(request):
-    if request.user.is_authenticated:
-        return redirect('home')
 
     if request.method == 'POST':
         username = request.POST.get('username')
